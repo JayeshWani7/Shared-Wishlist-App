@@ -153,7 +153,7 @@ const Login: React.FC = () => {
             </div>
           </div>
           <div className="mt-4 text-center text-sm text-gray-600">
-            <p>Email: demo@example.com</p>
+            <p>Email: jayesh@example.com</p>
             <p>Password: demo123</p>
           </div>
         </div>
