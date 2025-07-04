@@ -28,7 +28,7 @@ const seedData = async () => {
     // Create demo users
     const hashedPassword = await bcrypt.hash('demo123', 10);
     
-    const user = await User.create({
+    const jayesh = await User.create({
       username: 'jayesh',
       email: 'jayesh@example.com',
       password: hashedPassword,
@@ -52,7 +52,7 @@ const seedData = async () => {
     const techWishlist = await Wishlist.create({
       title: 'Tech Gadgets 2025',
       description: 'Latest tech gadgets I want to buy this year',
-      owner: user._id,
+      owner: jayesh._id,
       collaborators: [johnUser._id],
       isPublic: true,
       products: [
@@ -64,7 +64,7 @@ const seedData = async () => {
           url: 'https://apple.com/iphone',
           category: 'Electronics',
           priority: 'high',
-          addedBy: user._id,
+          addedBy: jayesh._id,
           addedAt: new Date(),
           updatedAt: new Date(),
         },
@@ -88,7 +88,7 @@ const seedData = async () => {
           url: 'https://apple.com/airpods-pro',
           category: 'Audio',
           priority: 'low',
-          addedBy: user._id,
+          addedBy: jayesh._id,
           addedAt: new Date(),
           updatedAt: new Date(),
         }
@@ -99,7 +99,7 @@ const seedData = async () => {
       title: 'Programming Books',
       description: 'Must-read books for software developers',
       owner: johnUser._id,
-      collaborators: [user._id, janeUser._id],
+      collaborators: [jayesh._id, janeUser._id],
       isPublic: false,
       products: [
         {
@@ -153,7 +153,7 @@ const seedData = async () => {
     console.log('Created demo wishlists');
     console.log('\nDemo data seeded successfully!');
     console.log('\nDemo accounts:');
-    console.log('Email: demo@example.com, Password: demo123');
+    console.log('Email: jayesh@example.com, Password: demo123');
     console.log('Email: john@example.com, Password: demo123');
     console.log('Email: jane@example.com, Password: demo123');
     
