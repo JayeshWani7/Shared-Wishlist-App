@@ -67,6 +67,16 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// Debug endpoint to check CORS
+app.get('/api/debug', (req, res) => {
+  res.status(200).json({ 
+    message: 'Backend is running',
+    origin: req.headers.origin,
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV
+  });
+});
+
 // Socket.io connection handling
 io.use(authenticateSocket);
 
