@@ -25,6 +25,45 @@ const WishlistDetail: React.FC = () => {
 
   const { currentWishlist, isLoading } = state.wishlists;
 
+  // Helper function to get user ID (handles both _id and id formats)
+  const getUserId = (user: any): string => {
+    return user._id || user.id;
+  };
+
+  // Permission check functions
+  const canModifyWishlist = () => {
+    if (!currentWishlist || !state.auth.user) return false;
+    const ownerId = getUserId(currentWishlist.owner);
+    const currentUserId = getUserId(state.auth.user);
+    return ownerId === currentUserId;
+  };
+
+  const canModifyProduct = (product: Product) => {
+    if (!currentWishlist || !state.auth.user) return false;
+    const ownerId = getUserId(currentWishlist.owner);
+    const currentUserId = getUserId(state.auth.user);
+    const productAddedById = getUserId(product.addedBy);
+    
+    // Owner can modify any product, or user can modify their own products
+    return (
+      ownerId === currentUserId || 
+      productAddedById === currentUserId ||
+      currentWishlist.collaborators.some(collaborator => getUserId(collaborator) === currentUserId)
+    );
+  };
+
+  const canAddProduct = () => {
+    if (!currentWishlist || !state.auth.user) return false;
+    const ownerId = getUserId(currentWishlist.owner);
+    const currentUserId = getUserId(state.auth.user);
+    
+    // Owner and collaborators can add products
+    return (
+      ownerId === currentUserId ||
+      currentWishlist.collaborators.some(collaborator => getUserId(collaborator) === currentUserId)
+    );
+  };
+
   useEffect(() => {
     if (id) {
       loadWishlist();
@@ -48,6 +87,11 @@ const WishlistDetail: React.FC = () => {
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!canAddProduct()) {
+      toast.error('You do not have permission to add products to this wishlist');
+      return;
+    }
+
     if (!newProduct.name.trim() || !newProduct.price.trim()) {
       toast.error('Please fill in the required fields');
       return;
@@ -78,6 +122,12 @@ const WishlistDetail: React.FC = () => {
   };
 
   const handleDeleteProduct = async (productId: string) => {
+    const product = currentWishlist?.products.find(p => p._id === productId);
+    if (!product || !canModifyProduct(product)) {
+      toast.error('You do not have permission to delete this product');
+      return;
+    }
+
     if (!window.confirm('Are you sure you want to delete this product?')) {
       return;
     }
@@ -88,6 +138,85 @@ const WishlistDetail: React.FC = () => {
       toast.success('Product deleted successfully!');
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to delete product');
+    }
+  };
+
+  const handleEditProduct = (product: Product) => {
+    if (!canModifyProduct(product)) {
+      toast.error('You do not have permission to edit this product');
+      return;
+    }
+
+    setEditingProduct(product);
+    setNewProduct({
+      name: product.name,
+      description: product.description || '',
+      price: product.price.toString(),
+      imageUrl: product.imageUrl || '',
+      url: product.url || '',
+      category: product.category || '',
+      priority: product.priority || 'medium',
+    });
+  };
+
+  const handleUpdateProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!editingProduct) {
+      toast.error('No product selected for editing');
+      return;
+    }
+
+    if (!canModifyProduct(editingProduct)) {
+      toast.error('You do not have permission to edit this product');
+      return;
+    }
+
+    if (!newProduct.name.trim() || !newProduct.price.trim()) {
+      toast.error('Please fill in the required fields');
+      return;
+    }
+
+    try {
+      const productData = {
+        ...newProduct,
+        price: parseFloat(newProduct.price),
+      };
+      
+      const response = await wishlistAPI.updateProduct(id!, editingProduct._id, productData);
+      dispatch({ type: 'UPDATE_WISHLIST', payload: response.wishlist });
+      setNewProduct({
+        name: '',
+        description: '',
+        price: '',
+        imageUrl: '',
+        url: '',
+        category: '',
+        priority: 'medium',
+      });
+      setEditingProduct(null);
+      toast.success('Product updated successfully!');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update product');
+    }
+  };
+
+  const handleDeleteWishlist = async () => {
+    if (!canModifyWishlist()) {
+      toast.error('You do not have permission to delete this wishlist');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to delete this wishlist? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      await wishlistAPI.deleteWishlist(id!);
+      toast.success('Wishlist deleted successfully!');
+      navigate('/dashboard');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to delete wishlist');
     }
   };
 
@@ -153,25 +282,38 @@ const WishlistDetail: React.FC = () => {
               <span>{currentWishlist.collaborators.length + 1} members</span>
             </div>
           </div>
-          <div className="mt-4 sm:mt-0">
-            <button
-              onClick={() => setShowAddForm(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Product
-            </button>
+          <div className="mt-4 sm:mt-0 flex space-x-2">
+            {canAddProduct() && (
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Product
+              </button>
+            )}
+            {canModifyWishlist() && (
+              <button
+                onClick={handleDeleteWishlist}
+                className="inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Wishlist
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Add Product Form */}
-      {showAddForm && (
+      {/* Add/Edit Product Form */}
+      {(showAddForm || editingProduct) && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Add New Product</h3>
-              <form onSubmit={handleAddProduct} className="space-y-4">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                {editingProduct ? 'Edit Product' : 'Add New Product'}
+              </h3>
+              <form onSubmit={editingProduct ? handleUpdateProduct : handleAddProduct} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Product Name *</label>
                   <input
@@ -227,6 +369,16 @@ const WishlistDetail: React.FC = () => {
                   />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700">Category</label>
+                  <input
+                    type="text"
+                    value={newProduct.category}
+                    onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                    placeholder="Enter product category"
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700">Priority</label>
                   <select
                     value={newProduct.priority}
@@ -241,7 +393,19 @@ const WishlistDetail: React.FC = () => {
                 <div className="flex justify-end space-x-3">
                   <button
                     type="button"
-                    onClick={() => setShowAddForm(false)}
+                    onClick={() => {
+                      setShowAddForm(false);
+                      setEditingProduct(null);
+                      setNewProduct({
+                        name: '',
+                        description: '',
+                        price: '',
+                        imageUrl: '',
+                        url: '',
+                        category: '',
+                        priority: 'medium',
+                      });
+                    }}
                     className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                   >
                     Cancel
@@ -250,7 +414,7 @@ const WishlistDetail: React.FC = () => {
                     type="submit"
                     className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700"
                   >
-                    Add Product
+                    {editingProduct ? 'Update Product' : 'Add Product'}
                   </button>
                 </div>
               </form>
@@ -264,17 +428,21 @@ const WishlistDetail: React.FC = () => {
         <div className="text-center py-12">
           <h3 className="text-lg font-medium text-gray-900">No products yet</h3>
           <p className="mt-1 text-sm text-gray-500">
-            Add your first product to get started with this wishlist.
+            {canAddProduct() 
+              ? "Add your first product to get started with this wishlist."
+              : "This wishlist doesn't have any products yet."}
           </p>
-          <div className="mt-6">
-            <button
-              onClick={() => setShowAddForm(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Product
-            </button>
-          </div>
+          {canAddProduct() && (
+            <div className="mt-6">
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Product
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -307,12 +475,24 @@ const WishlistDetail: React.FC = () => {
                         <ExternalLink className="h-4 w-4" />
                       </a>
                     )}
-                    <button
-                      onClick={() => handleDeleteProduct(product._id)}
-                      className="text-gray-400 hover:text-red-600"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {canModifyProduct(product) && (
+                      <button
+                        onClick={() => handleEditProduct(product)}
+                        className="text-gray-400 hover:text-blue-600"
+                        title="Edit product"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                    )}
+                    {canModifyProduct(product) && (
+                      <button
+                        onClick={() => handleDeleteProduct(product._id)}
+                        className="text-gray-400 hover:text-red-600"
+                        title="Delete product"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
                 

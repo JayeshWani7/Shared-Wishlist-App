@@ -269,6 +269,13 @@ export const updateProduct = async (req: AuthenticatedRequest, res: Response): P
       return;
     }
 
+    // Only product owner or wishlist owner can update
+    if (product.addedBy.toString() !== userId.toString() && 
+        wishlist.owner.toString() !== userId.toString()) {
+      res.status(403).json({ message: 'Unauthorized to update this product' });
+      return;
+    }
+
     // Update product fields
     if (name !== undefined) product.name = name;
     if (description !== undefined) product.description = description;
